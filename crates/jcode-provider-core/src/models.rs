@@ -58,7 +58,16 @@ pub fn provider_key_from_hint(provider_hint: Option<&str>) -> Option<&'static st
         "antigravity" => Some("antigravity"),
         "gemini" | "google gemini" => Some("gemini"),
         "cursor" => Some("cursor"),
-        _ => None,
+        "minimax-cn" => Some("minimax-cn"),
+        // Also check for model-based prefixes when using minimax-cn provider
+        _ => {
+            let model_lower = normalized.to_ascii_lowercase();
+            if model_lower.starts_with("minimax/") || model_lower.starts_with("minimax-") {
+                Some("minimax-cn")
+            } else {
+                None
+            }
+        }
     }
 }
 

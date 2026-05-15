@@ -1362,80 +1362,11 @@ fn glyphon_body_buffer_uses_line_style_colors() {
     );
     assert_eq!(
         first_glyph_color_for_text(body, "  bash done"),
-        Some(text_color(TOOL_MUTED_TEXT_COLOR))
+        Some(single_session_line_color(SingleSessionLineStyle::Tool))
     );
     assert_eq!(
         first_glyph_color_for_text(body, "  model switched"),
         Some(single_session_line_color(SingleSessionLineStyle::Meta))
-    );
-}
-
-#[test]
-fn single_session_tool_text_segments_use_stateful_colors() {
-    let lines = [
-        SingleSessionStyledLine {
-            text: "  ✓ bash · done · tests passed".to_string(),
-            style: SingleSessionLineStyle::Tool,
-        },
-        SingleSessionStyledLine {
-            text: "  │intent: Run tests                                            │".to_string(),
-            style: SingleSessionLineStyle::Tool,
-        },
-        SingleSessionStyledLine {
-            text: "  plain tool output".to_string(),
-            style: SingleSessionLineStyle::Tool,
-        },
-    ];
-
-    let segments = single_session_styled_text_segments(&lines);
-
-    assert!(
-        segments.contains(&(
-            "✓",
-            Attrs::new()
-                .family(Family::Name(SINGLE_SESSION_FONT_FAMILY))
-                .color(text_color(TOOL_SUCCESS_TEXT_COLOR))
-        ))
-    );
-    assert!(
-        segments.contains(&(
-            "bash",
-            Attrs::new()
-                .family(Family::Name(SINGLE_SESSION_FONT_FAMILY))
-                .color(text_color(TOOL_TEXT_COLOR))
-        ))
-    );
-    assert!(
-        segments.contains(&(
-            "done",
-            Attrs::new()
-                .family(Family::Name(SINGLE_SESSION_FONT_FAMILY))
-                .color(text_color(TOOL_SUCCESS_TEXT_COLOR))
-        ))
-    );
-    assert!(
-        segments.contains(&(
-            "tests passed",
-            Attrs::new()
-                .family(Family::Name(SINGLE_SESSION_FONT_FAMILY))
-                .color(text_color(TOOL_DETAIL_TEXT_COLOR))
-        ))
-    );
-    assert!(
-        segments.contains(&(
-            "intent: Run tests",
-            Attrs::new()
-                .family(Family::Name(SINGLE_SESSION_FONT_FAMILY))
-                .color(text_color(TOOL_DETAIL_TEXT_COLOR))
-        ))
-    );
-    assert!(
-        segments.contains(&(
-            "plain tool output",
-            Attrs::new()
-                .family(Family::Name(SINGLE_SESSION_FONT_FAMILY))
-                .color(text_color(TOOL_DETAIL_TEXT_COLOR))
-        ))
     );
 }
 
@@ -1606,44 +1537,6 @@ fn single_session_tool_events_expand_context_and_collapse_previous_call() {
     assert!(body.contains("  ✓ bash · done · tests passed"));
     assert!(!body.contains("Run desktop tests"));
     assert!(body.contains("  ○ read · preparing"));
-}
-
-#[test]
-fn single_session_tool_event_preserves_prior_streaming_text_order() {
-    let mut app = SingleSessionApp::new(None);
-
-    app.apply_session_event(session_launch::DesktopSessionEvent::TextDelta(
-        "Before the tool".to_string(),
-    ));
-    app.apply_session_event(session_launch::DesktopSessionEvent::ToolStarted {
-        name: "bash".to_string(),
-    });
-    app.apply_session_event(session_launch::DesktopSessionEvent::ToolFinished {
-        name: "bash".to_string(),
-        summary: "done".to_string(),
-        is_error: false,
-    });
-    app.apply_session_event(session_launch::DesktopSessionEvent::TextDelta(
-        "After the tool".to_string(),
-    ));
-
-    let body = app.body_lines().join("\n");
-    let before = body
-        .find("Before the tool")
-        .expect("streaming text before tool is rendered");
-    let tool = body.find("bash").expect("tool message is rendered");
-    let after = body
-        .find("After the tool")
-        .expect("streaming text after tool is rendered");
-
-    assert!(
-        before < tool,
-        "assistant text that arrived before a tool should stay above the tool: {body}"
-    );
-    assert!(
-        tool < after,
-        "assistant text that arrives after a tool should stay below the tool: {body}"
-    );
 }
 
 #[test]

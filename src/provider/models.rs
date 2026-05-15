@@ -1093,6 +1093,16 @@ pub fn provider_for_model_with_hint(
     }
 
     let model = model.trim();
+
+    // For minimax-cn provider, handle MiniMax models specially BEFORE the '/'
+    // check below, so that "minimax/MiniMax-M2.7" routes to minimax-cn, not openrouter.
+    if provider_hint == Some("minimax-cn") {
+        let model_lower = model.to_ascii_lowercase();
+        if model_lower.starts_with("minimax/") || model_lower.starts_with("minimax-") {
+            return Some("minimax-cn");
+        }
+    }
+
     if model.contains('@') {
         Some("openrouter")
     } else if ALL_CLAUDE_MODELS.contains(&model) {

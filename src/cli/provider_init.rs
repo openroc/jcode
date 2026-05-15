@@ -88,6 +88,8 @@ pub enum ProviderChoice {
     Fireworks,
     #[value(alias = "minimax-ai", alias = "minimaxi")]
     Minimax,
+    #[value(alias = "minimax-cn-ai", alias = "minimaxcn")]
+    MinimaxCn,
     #[value(alias = "x.ai", alias = "x-ai", alias = "grok")]
     Xai,
     #[value(alias = "nvidia", alias = "nim")]
@@ -150,6 +152,7 @@ impl ProviderChoice {
             Self::Deepinfra => "deepinfra",
             Self::Fireworks => "fireworks",
             Self::Minimax => "minimax",
+            Self::MinimaxCn => "minimax-cn",
             Self::Xai => "xai",
             Self::NvidiaNim => "nvidia-nim",
             Self::Lmstudio => "lmstudio",
@@ -293,6 +296,10 @@ const PROVIDER_CHOICE_LOGIN_PROVIDERS: &[(ProviderChoice, LoginProviderDescripto
     (
         ProviderChoice::Minimax,
         crate::provider_catalog::MINIMAX_LOGIN_PROVIDER,
+    ),
+    (
+        ProviderChoice::MinimaxCn,
+        crate::provider_catalog::MINIMAX_CN_LOGIN_PROVIDER,
     ),
     (
         ProviderChoice::Xai,
@@ -1349,6 +1356,7 @@ async fn init_provider_with_options(
         | ProviderChoice::Deepinfra
         | ProviderChoice::Fireworks
         | ProviderChoice::Minimax
+        | ProviderChoice::MinimaxCn
         | ProviderChoice::Xai
         | ProviderChoice::NvidiaNim
         | ProviderChoice::Lmstudio

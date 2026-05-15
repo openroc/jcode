@@ -180,6 +180,15 @@ impl App {
                             String::new()
                         },
                     )
+                } else if model.starts_with("minimax/") {
+                    (
+                        "MiniMax CN".to_string(),
+                        "minimax-cn".to_string(),
+                        crate::provider_catalog::openai_compatible_profile_is_configured(
+                            crate::provider_catalog::MINIMAX_CN_PROFILE,
+                        ),
+                        String::new(),
+                    )
                 } else if model.contains('/') {
                     (
                         "auto".to_string(),

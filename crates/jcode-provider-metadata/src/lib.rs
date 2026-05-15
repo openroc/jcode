@@ -392,6 +392,17 @@ pub const MINIMAX_PROFILE: OpenAiCompatibleProfile = OpenAiCompatibleProfile {
     requires_api_key: true,
 };
 
+pub const MINIMAX_CN_PROFILE: OpenAiCompatibleProfile = OpenAiCompatibleProfile {
+    id: "minimax-cn",
+    display_name: "MiniMax CN",
+    api_base: "https://api.minimaxi.com/v1",
+    api_key_env: "MINIMAX_CN_API_KEY",
+    env_file: "minimax-cn.env",
+    setup_url: "https://platform.minimax.io/docs/guides/text-generation",
+    default_model: Some("MiniMax-M2.7"),
+    requires_api_key: true,
+};
+
 pub const XAI_PROFILE: OpenAiCompatibleProfile = OpenAiCompatibleProfile {
     id: "xai",
     display_name: "xAI",
@@ -484,7 +495,7 @@ pub const OPENAI_COMPAT_PROFILE: OpenAiCompatibleProfile = OpenAiCompatibleProfi
     requires_api_key: true,
 };
 
-const OPENAI_COMPAT_PROFILES: [OpenAiCompatibleProfile; 31] = [
+const OPENAI_COMPAT_PROFILES: [OpenAiCompatibleProfile; 32] = [
     OPENCODE_PROFILE,
     OPENCODE_GO_PROFILE,
     ZAI_PROFILE,
@@ -511,6 +522,7 @@ const OPENAI_COMPAT_PROFILES: [OpenAiCompatibleProfile; 31] = [
     DEEPINFRA_PROFILE,
     FIREWORKS_PROFILE,
     MINIMAX_PROFILE,
+    MINIMAX_CN_PROFILE,
     XAI_PROFILE,
     NVIDIA_NIM_PROFILE,
     LMSTUDIO_PROFILE,
@@ -971,6 +983,19 @@ pub const MINIMAX_LOGIN_PROVIDER: LoginProviderDescriptor = LoginProviderDescrip
     order: LoginProviderSurfaceOrder::new(Some(38), Some(38), Some(38), Some(38), Some(38)),
 };
 
+pub const MINIMAX_CN_LOGIN_PROVIDER: LoginProviderDescriptor = LoginProviderDescriptor {
+    id: "minimax-cn",
+    display_name: "MiniMax CN",
+    auth_kind: LoginProviderAuthKind::ApiKey,
+    auth_state_key: LoginProviderAuthStateKey::OpenRouterLike,
+    auth_status_method: "API key",
+    aliases: &["minimaxcn", "minimax-cn-ai"],
+    menu_detail: "API key",
+    recommended: false,
+    target: LoginProviderTarget::OpenAiCompatible(MINIMAX_CN_PROFILE),
+    order: LoginProviderSurfaceOrder::new(Some(38), Some(38), Some(38), Some(38), Some(39)),
+};
+
 pub const XAI_LOGIN_PROVIDER: LoginProviderDescriptor = LoginProviderDescriptor {
     id: "xai",
     display_name: "xAI",
@@ -1101,7 +1126,7 @@ pub const GOOGLE_LOGIN_PROVIDER: LoginProviderDescriptor = LoginProviderDescript
     order: LoginProviderSurfaceOrder::new(Some(13), None, None, None, None),
 };
 
-const LOGIN_PROVIDERS: [LoginProviderDescriptor; 44] = [
+const LOGIN_PROVIDERS: [LoginProviderDescriptor; 45] = [
     AUTO_IMPORT_LOGIN_PROVIDER,
     CLAUDE_LOGIN_PROVIDER,
     OPENAI_LOGIN_PROVIDER,
@@ -1136,6 +1161,7 @@ const LOGIN_PROVIDERS: [LoginProviderDescriptor; 44] = [
     DEEPINFRA_LOGIN_PROVIDER,
     FIREWORKS_LOGIN_PROVIDER,
     MINIMAX_LOGIN_PROVIDER,
+    MINIMAX_CN_LOGIN_PROVIDER,
     XAI_LOGIN_PROVIDER,
     NVIDIA_NIM_LOGIN_PROVIDER,
     LMSTUDIO_LOGIN_PROVIDER,
@@ -1360,6 +1386,12 @@ mod tests {
     }
 
     #[test]
+    fn minimax_cn_profile_uses_china_endpoint() {
+        assert_eq!(MINIMAX_CN_PROFILE.api_base, "https://api.minimaxi.com/v1");
+        assert_eq!(MINIMAX_CN_PROFILE.api_key_env, "MINIMAX_CN_API_KEY");
+    }
+
+    #[test]
     fn nvidia_nim_profile_uses_hosted_openai_compatible_configuration() {
         assert_eq!(
             NVIDIA_NIM_PROFILE.api_base,
@@ -1482,6 +1514,10 @@ mod tests {
         assert_eq!(
             resolve_login_provider("minimax-ai").map(|provider| provider.id),
             Some("minimax")
+        );
+        assert_eq!(
+            resolve_login_provider("minimax-cn").map(|provider| provider.id),
+            Some("minimax-cn")
         );
         assert_eq!(
             resolve_login_provider("grok").map(|provider| provider.id),

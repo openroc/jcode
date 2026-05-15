@@ -34,7 +34,6 @@ use winit::keyboard::{Key, ModifiersState, NamedKey};
 use winit::window::{Fullscreen, Window, WindowBuilder};
 use workspace::{InputMode, KeyInput, KeyOutcome, PanelSizePreset, Workspace};
 
-use std::borrow::Cow;
 use std::collections::hash_map::DefaultHasher;
 use std::ffi::OsString;
 use std::fs::OpenOptions;
@@ -127,22 +126,16 @@ const WORKSPACE_NUMBER_COLOR: [f32; 4] = [0.953, 0.965, 0.984, 0.90];
 const STATUS_TEXT_COLOR: [f32; 4] = [0.953, 0.965, 0.984, 0.88];
 const PANEL_TITLE_COLOR: [f32; 4] = [0.010, 0.014, 0.025, 1.0];
 const PANEL_BODY_COLOR: [f32; 4] = [0.008, 0.012, 0.020, 1.0];
-const ASSISTANT_TEXT_COLOR: [f32; 4] = [0.026, 0.034, 0.052, 1.0];
-const ASSISTANT_HEADING_TEXT_COLOR: [f32; 4] = [0.030, 0.095, 0.300, 1.0];
-const ASSISTANT_QUOTE_TEXT_COLOR: [f32; 4] = [0.210, 0.090, 0.355, 1.0];
-const ASSISTANT_TABLE_TEXT_COLOR: [f32; 4] = [0.000, 0.155, 0.185, 1.0];
-const ASSISTANT_LINK_TEXT_COLOR: [f32; 4] = [0.000, 0.170, 0.430, 1.0];
+const ASSISTANT_TEXT_COLOR: [f32; 4] = [0.000, 0.060, 0.072, 1.0];
+const ASSISTANT_HEADING_TEXT_COLOR: [f32; 4] = [0.012, 0.080, 0.250, 1.0];
+const ASSISTANT_QUOTE_TEXT_COLOR: [f32; 4] = [0.145, 0.055, 0.275, 1.0];
+const ASSISTANT_TABLE_TEXT_COLOR: [f32; 4] = [0.000, 0.120, 0.145, 1.0];
+const ASSISTANT_LINK_TEXT_COLOR: [f32; 4] = [0.000, 0.095, 0.315, 1.0];
 const USER_TEXT_COLOR: [f32; 4] = [0.012, 0.030, 0.180, 1.0];
 const USER_CONTINUATION_TEXT_COLOR: [f32; 4] = [0.018, 0.035, 0.155, 1.0];
-const TOOL_TEXT_COLOR: [f32; 4] = [0.150, 0.095, 0.325, 1.0];
-const TOOL_DETAIL_TEXT_COLOR: [f32; 4] = [0.135, 0.155, 0.220, 1.0];
-const TOOL_MUTED_TEXT_COLOR: [f32; 4] = [0.345, 0.365, 0.430, 0.96];
-const TOOL_RUNNING_TEXT_COLOR: [f32; 4] = [0.045, 0.265, 0.640, 1.0];
-const TOOL_SUCCESS_TEXT_COLOR: [f32; 4] = [0.035, 0.360, 0.220, 1.0];
-const TOOL_FAILED_TEXT_COLOR: [f32; 4] = [0.560, 0.070, 0.095, 1.0];
-const TOOL_PENDING_TEXT_COLOR: [f32; 4] = [0.320, 0.345, 0.405, 1.0];
-const META_TEXT_COLOR: [f32; 4] = [0.095, 0.110, 0.155, 0.98];
-const CODE_TEXT_COLOR: [f32; 4] = [0.055, 0.065, 0.095, 1.0];
+const TOOL_TEXT_COLOR: [f32; 4] = [0.225, 0.105, 0.000, 1.0];
+const META_TEXT_COLOR: [f32; 4] = [0.055, 0.070, 0.105, 1.0];
+const CODE_TEXT_COLOR: [f32; 4] = [0.045, 0.055, 0.080, 1.0];
 const STATUS_TEXT_ACCENT_COLOR: [f32; 4] = [0.030, 0.125, 0.080, 1.0];
 const ERROR_TEXT_COLOR: [f32; 4] = [0.360, 0.000, 0.000, 1.0];
 const OVERLAY_TEXT_COLOR: [f32; 4] = [0.030, 0.045, 0.075, 1.0];
@@ -326,7 +319,6 @@ async fn run() -> Result<()> {
     let mut no_paint_watchdog = DesktopNoPaintWatchdog::new();
     let mut last_backend_redraw_request: Option<Instant> = None;
     let mut pending_backend_redraw_since: Option<Instant> = None;
-    let mut pending_resize: Option<PhysicalSize<u32>> = None;
 
     event_loop.run(move |event, target| {
         let event_loop_now = Instant::now();
@@ -377,12 +369,12 @@ async fn run() -> Result<()> {
             Event::WindowEvent { event, window_id } if window_id == window.id() => match event {
                 WindowEvent::CloseRequested => target.exit(),
                 WindowEvent::Resized(size) => {
-                    pending_resize = Some(size);
+                    canvas.resize(size);
                     scroll_metrics_cache.clear();
                     window.request_redraw();
                 }
                 WindowEvent::ScaleFactorChanged { .. } => {
-                    pending_resize = Some(window.inner_size());
+                    canvas.resize(window.inner_size());
                     scroll_metrics_cache.clear();
                     window.request_redraw();
                 }
@@ -768,9 +760,6 @@ async fn run() -> Result<()> {
                     );
                 }
                 WindowEvent::RedrawRequested => {
-                    if let Some(size) = pending_resize.take() {
-                        canvas.resize(size);
-                    }
                     let smooth_scroll_lines = app.single_session_smooth_scroll_lines(
                         scroll_accumulator.pending_lines(),
                         window.inner_size(),
@@ -5612,7 +5601,6 @@ struct Canvas<'window> {
     primitive_vertex_capacity: usize,
     primitive_vertices_cache_key: Option<u64>,
     primitive_vertices_cache: Vec<Vertex>,
-    primitive_frame_vertices: Vec<Vertex>,
     needs_initial_frame: bool,
     defer_initial_text_frame: bool,
     single_session_text_cache_key: Option<u64>,
@@ -5789,7 +5777,6 @@ impl<'window> Canvas<'window> {
             primitive_vertex_capacity: 0,
             primitive_vertices_cache_key: None,
             primitive_vertices_cache: Vec::new(),
-            primitive_frame_vertices: Vec::new(),
             needs_initial_frame: true,
             defer_initial_text_frame: true,
             single_session_text_cache_key: None,
@@ -5832,7 +5819,6 @@ impl<'window> Canvas<'window> {
         self.single_session_body_text_window_end = None;
         self.primitive_vertices_cache_key = None;
         self.primitive_vertices_cache.clear();
-        self.primitive_frame_vertices.clear();
         self.text_needs_prepare = true;
         self.config.width = size.width;
         self.config.height = size.height;
@@ -6118,6 +6104,30 @@ impl<'window> Canvas<'window> {
         self.streaming_text_atlas = Some(text_atlas);
         self.streaming_text_renderer = Some(text_renderer);
         self.streaming_text_needs_prepare = true;
+    }
+
+    fn upload_primitive_vertices(&mut self, vertices: &[Vertex]) {
+        if vertices.is_empty() {
+            return;
+        }
+
+        if self.primitive_vertex_capacity < vertices.len() {
+            self.primitive_vertex_capacity = vertices.len().next_power_of_two();
+            let size = (self.primitive_vertex_capacity * std::mem::size_of::<Vertex>())
+                as wgpu::BufferAddress;
+            self.primitive_vertex_buffer =
+                Some(self.device.create_buffer(&wgpu::BufferDescriptor {
+                    label: Some("jcode-desktop-workspace-vertices"),
+                    size,
+                    usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                    mapped_at_creation: false,
+                }));
+        }
+
+        if let Some(vertex_buffer) = self.primitive_vertex_buffer.as_ref() {
+            self.queue
+                .write_buffer(vertex_buffer, 0, bytemuck::cast_slice(vertices));
+        }
     }
 
     fn cached_single_session_body_lines(
@@ -6413,7 +6423,7 @@ impl<'window> Canvas<'window> {
         frame_profile.checkpoint("text_prepare_streaming");
 
         let mut primitive_geometry_cache_hit = false;
-        let (mut vertices, animation_active): (Cow<'_, [Vertex]>, bool) = match app {
+        let (mut vertices, animation_active) = match app {
             DesktopApp::SingleSession(single_session) => {
                 let focus_pulse = self.focus_pulse.frame(1, now);
                 let animation_active = self.focus_pulse.is_animating()
@@ -6432,7 +6442,7 @@ impl<'window> Canvas<'window> {
                 let vertices = if let Some(cache_key) = geometry_cache_key {
                     if self.primitive_vertices_cache_key == Some(cache_key) {
                         primitive_geometry_cache_hit = true;
-                        Cow::Borrowed(self.primitive_vertices_cache.as_slice())
+                        self.primitive_vertices_cache.clone()
                     } else {
                         let vertices = build_single_session_vertices_with_cached_body(
                             single_session,
@@ -6444,12 +6454,12 @@ impl<'window> Canvas<'window> {
                             &self.single_session_body_lines,
                         );
                         self.primitive_vertices_cache_key = Some(cache_key);
-                        self.primitive_vertices_cache = vertices;
-                        Cow::Borrowed(self.primitive_vertices_cache.as_slice())
+                        self.primitive_vertices_cache = vertices.clone();
+                        vertices
                     }
                 } else {
                     self.primitive_vertices_cache_key = None;
-                    Cow::Owned(build_single_session_vertices_with_cached_body(
+                    build_single_session_vertices_with_cached_body(
                         single_session,
                         self.size,
                         focus_pulse,
@@ -6457,7 +6467,7 @@ impl<'window> Canvas<'window> {
                         smooth_scroll_lines,
                         welcome_hero_reveal_progress,
                         &self.single_session_body_lines,
-                    ))
+                    )
                 };
                 (vertices, animation_active)
             }
@@ -6469,12 +6479,7 @@ impl<'window> Canvas<'window> {
                 let animation_active =
                     self.viewport_animation.is_animating() || self.focus_pulse.is_animating();
                 (
-                    Cow::Owned(build_vertices(
-                        workspace,
-                        self.size,
-                        render_layout,
-                        focus_pulse,
-                    )),
+                    build_vertices(workspace, self.size, render_layout, focus_pulse),
                     animation_active,
                 )
             }
@@ -6483,40 +6488,19 @@ impl<'window> Canvas<'window> {
         if let DesktopApp::SingleSession(single_session) = app
             && spinner_tick % 6 < 3
         {
-            if let Cow::Borrowed(base_vertices) = vertices {
-                self.primitive_frame_vertices.clear();
-                self.primitive_frame_vertices
-                    .extend_from_slice(base_vertices);
-                push_single_session_caret(
-                    &mut self.primitive_frame_vertices,
-                    single_session,
-                    self.size,
-                    text_buffers.get(2),
-                );
-                vertices = Cow::Borrowed(self.primitive_frame_vertices.as_slice());
-            } else {
-                push_single_session_caret(
-                    vertices.to_mut(),
-                    single_session,
-                    self.size,
-                    text_buffers.get(2),
-                );
-            }
+            push_single_session_caret(
+                &mut vertices,
+                single_session,
+                self.size,
+                text_buffers.get(2),
+            );
         }
         frame_profile.checkpoint("caret");
         let primitive_vertex_count = vertices.len();
-        upload_primitive_vertices(
-            &self.device,
-            &self.queue,
-            &mut self.primitive_vertex_buffer,
-            &mut self.primitive_vertex_capacity,
-            vertices.as_ref(),
-        );
+        self.upload_primitive_vertices(&vertices);
         frame_profile.checkpoint("primitive_upload");
 
-        let hero_mask_spec = if welcome_hero_reveal_active
-            && let DesktopApp::SingleSession(single_session) = app
-        {
+        let hero_mask_spec = if let DesktopApp::SingleSession(single_session) = app {
             welcome_hero_runtime_mask_spec_for_total_lines(
                 single_session,
                 self.size,
@@ -6553,7 +6537,7 @@ impl<'window> Canvas<'window> {
             render_pass.set_pipeline(&self.render_pipeline);
             if let Some(vertex_buffer) = self.primitive_vertex_buffer.as_ref() {
                 render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
-                render_pass.draw(0..primitive_vertex_count as u32, 0..1);
+                render_pass.draw(0..vertices.len() as u32, 0..1);
             }
             if hero_mask_prepared {
                 self.hero_mask_renderer.render_prepared(&mut render_pass);
@@ -6603,34 +6587,6 @@ impl<'window> Canvas<'window> {
             frame_cpu,
             context,
         })
-    }
-}
-
-fn upload_primitive_vertices(
-    device: &wgpu::Device,
-    queue: &wgpu::Queue,
-    primitive_vertex_buffer: &mut Option<wgpu::Buffer>,
-    primitive_vertex_capacity: &mut usize,
-    vertices: &[Vertex],
-) {
-    if vertices.is_empty() {
-        return;
-    }
-
-    if *primitive_vertex_capacity < vertices.len() {
-        *primitive_vertex_capacity = vertices.len().next_power_of_two();
-        let size =
-            (*primitive_vertex_capacity * std::mem::size_of::<Vertex>()) as wgpu::BufferAddress;
-        *primitive_vertex_buffer = Some(device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("jcode-desktop-workspace-vertices"),
-            size,
-            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        }));
-    }
-
-    if let Some(vertex_buffer) = primitive_vertex_buffer.as_ref() {
-        queue.write_buffer(vertex_buffer, 0, bytemuck::cast_slice(vertices));
     }
 }
 

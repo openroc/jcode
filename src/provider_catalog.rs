@@ -337,7 +337,7 @@ pub fn openai_compatible_profile_static_models(profile: OpenAiCompatibleProfile)
         // model activation should not depend on the catalog refresh completing
         // before the picker/routes are rebuilt. Keep the documented text models
         // selectable immediately after saving a key.
-        "minimax" => {
+        "minimax" | "minimax-cn" => {
             push("MiniMax-M2.7");
             push("MiniMax-M2.7-highspeed");
             push("MiniMax-M2.5");
