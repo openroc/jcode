@@ -410,6 +410,14 @@ fn single_session_slash_help_opens_help_without_sending_prompt() {
 
     assert_eq!(app.handle_key(KeyInput::SubmitDraft), KeyOutcome::Redraw);
     assert!(app.show_help);
+    assert_eq!(
+        app.active_inline_widget(),
+        Some(InlineWidgetKind::HotkeyHelp)
+    );
+    assert_eq!(
+        app.active_inline_widget_mode(),
+        Some(InlineWidgetMode::ReadOnly)
+    );
     assert!(app.draft.is_empty());
     assert!(app.messages.is_empty());
     let help = app
@@ -444,6 +452,14 @@ fn single_session_info_hotkey_toggles_inline_session_stats() {
         KeyOutcome::Redraw
     );
     assert!(app.show_session_info);
+    assert_eq!(
+        app.active_inline_widget(),
+        Some(InlineWidgetKind::SessionInfo)
+    );
+    assert_eq!(
+        app.active_inline_widget_mode(),
+        Some(InlineWidgetMode::ReadOnly)
+    );
     let info = app
         .inline_widget_styled_lines()
         .into_iter()
@@ -509,6 +525,14 @@ fn single_session_typing_model_slash_opens_preview_picker_without_submitting() {
     );
     assert!(app.model_picker.open);
     assert!(app.model_picker.preview);
+    assert_eq!(
+        app.active_inline_widget(),
+        Some(InlineWidgetKind::ModelPicker)
+    );
+    assert_eq!(
+        app.active_inline_widget_mode(),
+        Some(InlineWidgetMode::ReadOnly)
+    );
     assert_eq!(app.draft, "/model opus");
     assert_eq!(app.model_picker.filter, "opus");
 
@@ -532,10 +556,10 @@ fn single_session_typing_model_slash_opens_preview_picker_without_submitting() {
         .map(|line| line.text)
         .collect::<Vec<_>>()
         .join("\n");
-    assert!(picker.contains("MODEL"));
-    assert!(picker.contains("PROVIDER"));
-    assert!(picker.contains("METHOD"));
-    assert!(picker.contains("\"opus\""));
+    assert!(picker.contains("Model picker"));
+    assert!(picker.contains("filter \"opus\""));
+    assert!(picker.contains("claude-opus-4-5"));
+    assert!(picker.contains("claude · oauth · premium"));
 
     assert_eq!(
         app.handle_key(KeyInput::SubmitDraft),
@@ -1458,6 +1482,10 @@ fn positions_for_color(vertices: &[Vertex], color: [f32; 4]) -> Vec<[u32; 2]> {
         .collect()
 }
 
+fn ndc_x_to_pixel(x: f32, size: PhysicalSize<u32>) -> f32 {
+    (x + 1.0) * 0.5 * size.width.max(1) as f32
+}
+
 fn assert_visual_text_contains(key: &SingleSessionTextKey, expected: &str) {
     let body_lines = key
         .body
@@ -1674,10 +1702,18 @@ fn single_session_model_picker_loads_filters_and_selects_model() {
     );
     assert!(app.model_picker.open);
     assert!(app.model_picker.loading);
+    assert_eq!(
+        app.active_inline_widget(),
+        Some(InlineWidgetKind::ModelPicker)
+    );
+    assert_eq!(
+        app.active_inline_widget_mode(),
+        Some(InlineWidgetMode::Interactive)
+    );
     assert!(
         app.inline_widget_styled_lines()
             .into_iter()
-            .any(|line| line.text.contains("loading models"))
+            .any(|line| line.text.contains("Loading models"))
     );
 
     app.apply_session_event(session_launch::DesktopSessionEvent::ModelCatalog {
@@ -1710,11 +1746,10 @@ fn single_session_model_picker_loads_filters_and_selects_model() {
         .map(|line| line.text)
         .collect::<Vec<_>>()
         .join("\n");
-    assert!(picker.contains("╭─ model picker · current Claude · claude-sonnet-4-5"));
-    assert!(picker.contains("MODEL"));
-    assert!(picker.contains("PROVIDER"));
-    assert!(picker.contains("METHOD"));
-    assert!(picker.contains("✓ claude-sonnet-4-5"));
+    assert!(picker.contains("Model picker    current Claude · claude-sonnet-4-5"));
+    assert!(picker.contains("type to filter"));
+    assert!(picker.contains("2 models"));
+    assert!(picker.contains("claude-sonnet-4-5"));
     assert!(picker.contains("claude"));
     assert!(picker.contains("oauth"));
 
@@ -1859,7 +1894,7 @@ fn single_session_model_picker_updates_current_model_after_switch() {
             .map(|line| line.text)
             .collect::<Vec<_>>()
             .join("\n")
-            .contains("╭─ model picker · current OpenAI · gpt-5.4")
+            .contains("Model picker    current OpenAI · gpt-5.4")
     );
     assert!(app.composer_status_line().contains("model OpenAI/gpt-5.4"));
 }
@@ -3269,7 +3304,7 @@ fn fresh_welcome_model_picker_only_reserves_inline_lane() {
     assert!(
         key.inline_widget
             .iter()
-            .any(|line| line.text.contains("MODEL"))
+            .any(|line| line.text.contains("Model picker"))
     );
     assert_eq!(
         single_session_draft_top_for_app(&app, size),
@@ -3283,9 +3318,29 @@ fn fresh_welcome_model_picker_only_reserves_inline_lane() {
     let draft_area = areas.first().expect("draft text area");
     assert_eq!(draft_area.top, single_session_draft_top(size));
     let inline_area = areas.last().expect("inline model picker text area");
+    let version_area = areas
+        .iter()
+        .find(|area| std::ptr::eq(area.buffer, &buffers[4]))
+        .expect("fresh welcome version text area");
     assert!(
         inline_area.top < draft_area.top,
         "fresh inline picker should render above the typed /model command"
+    );
+    assert!(
+        inline_area.left > PANEL_TITLE_LEFT_PADDING,
+        "inline picker should leave extra side breathing room: left={}",
+        inline_area.left
+    );
+    assert!(
+        inline_area.bounds.right < (size.width as f32 - PANEL_TITLE_LEFT_PADDING) as i32,
+        "inline picker should use an intrinsic text width instead of the full panel: right={}",
+        inline_area.bounds.right
+    );
+    assert!(
+        inline_area.top >= version_area.bounds.bottom as f32,
+        "fresh inline picker should flow below the welcome hero/version chrome instead of overlaying it: inline_top={}, version_bottom={}",
+        inline_area.top,
+        version_area.bounds.bottom
     );
     assert!(
         inline_area.top > handwritten_welcome_bounds(size).1[1],
@@ -3294,6 +3349,29 @@ fn fresh_welcome_model_picker_only_reserves_inline_lane() {
     assert!(
         inline_area.bounds.bottom > inline_area.bounds.top,
         "fresh inline picker should keep a visible clipped lane"
+    );
+
+    let vertices = build_single_session_vertices(&app, size, 0.0, 0);
+    let inline_card_vertices = positions_for_color(&vertices, [0.972, 0.982, 1.000, 0.54]);
+    assert!(
+        !inline_card_vertices.is_empty(),
+        "inline picker should draw a rounded card background"
+    );
+    let min_x = inline_card_vertices
+        .iter()
+        .map(|position| ndc_x_to_pixel(f32::from_bits(position[0]), size))
+        .fold(f32::INFINITY, f32::min);
+    let max_x = inline_card_vertices
+        .iter()
+        .map(|position| ndc_x_to_pixel(f32::from_bits(position[0]), size))
+        .fold(f32::NEG_INFINITY, f32::max);
+    assert!(
+        min_x > PANEL_TITLE_LEFT_PADDING,
+        "inline card should start after the normal panel gutter: min_x={min_x}"
+    );
+    assert!(
+        max_x < size.width as f32 - PANEL_TITLE_LEFT_PADDING,
+        "inline card should hug the text instead of spanning full width: max_x={max_x}"
     );
 }
 
